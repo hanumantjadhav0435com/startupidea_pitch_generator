@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Pitch - AI Pitch Generator{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-to-r from-primary to-secondary text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>Generate AI Pitch
+                    </h2>
+                    <p class="mb-0 mt-2">Describe your startup idea and let AI create a professional pitch deck</p>
+                </div>
+                <div class="card-body p-5">
+                    <form id="pitchForm">
+                        <div class="mb-4">
+                            <label for="startupIdea" class="form-label fw-bold fs-5">
+                                <i class="fas fa-lightbulb me-2"></i>Describe Your Startup Idea
+                            </label>
+                            <textarea 
+                                id="startupIdea" 
+                                name="idea" 
+                                class="form-control" 
+                                rows="6" 
+                                placeholder="Describe your startup idea in detail. Include the problem you're solving, your target audience, and your unique value proposition. The more detail you provide, the better the AI can generate your pitch."
+                                required
+                            ></textarea>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Be as detailed as possible. Include the problem, solution, target market, and competitive advantage.
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                                <i class="fas fa-magic me-2"></i>Generate Pitch with AI
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading State -->
+    <div id="loadingSection" class="row justify-content-center mt-5" style="display: none;">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h4 class="text-primary">Generating Your Pitch...</h4>
+                    <p class="text-muted">Our AI is analyzing your idea and creating a professional pitch deck. This may take a moment.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Results Section -->
+    <div id="resultsSection" class="row justify-content-center mt-5" style="display: none;">
+        <div class="col-lg-10">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>Your AI-Generated Pitch
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="pitchContent">
+                        <!-- Pitch content will be inserted here -->
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button id="downloadBtn" class="btn btn-success btn-lg" style="display: none;">
+                            <i class="fas fa-download me-2"></i>Download as PowerPoint
+                        </button>
+                        <a href="{{ url_for('generate') }}" class="btn btn-outline-primary btn-lg ms-2">
+                            <i class="fas fa-plus me-2"></i>Generate Another Pitch
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPitchId = null;
+
+document.getElementById('pitchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const startupIdea = document.getElementById('startupIdea').value.trim();
+    if (!startupIdea) {
+        alert('Please describe your startup idea');
+        return;
+    }
+    
+    // Show loading state
+    document.getElementById('loadingSection').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('generateBtn').disabled = true;
+    
+    try {
+        const response = await fetch('/api/generate_pitch', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ idea: startupIdea })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentPitchId = data.pitch_id;
+            displayPitch(data.data);
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            document.getElementById('downloadBtn').style.display = 'inline-block';
+        } else {
+            throw new Error(data.error || 'Failed to generate pitch');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to generate pitch: ' + error.message);
+        document.getElementById('loadingSection').style.display = 'none';
+    } finally {
+        document.getElementById('generateBtn').disabled = false;
+    }
+});
+
+function displayPitch(pitchData) {
+    const pitchContent = document.getElementById('pitchContent');
+    
+    let html = `
+        <div class="pitch-display">
+            <div class="mb-4 p-4 bg-primary bg-opacity-10 rounded">
+                <h4 class="text-primary"><i class="fas fa-rocket me-2"></i>Elevator Pitch</h4>
+                <p class="fs-5 fw-bold mb-0">${pitchData.pitch}</p>
+            </div>
+            
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="p-3 border rounded h-100">
+                        <h5 class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Problem</h5>
+                        <p>${pitchData.problem}</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 border rounded h-100">
+                        <h5 class="text-success"><i class="fas fa-lightbulb me-2"></i>Solution</h5>
+                        <p>${pitchData.solution}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="p-3 border rounded h-100">
+                        <h5 class="text-info"><i class="fas fa-chart-line me-2"></i>Market Opportunity</h5>
+                        <p>${pitchData.market}</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 border rounded h-100">
+                        <h5 class="text-warning"><i class="fas fa-dollar-sign me-2"></i>Monetization</h5>
+                        <p>${pitchData.monetization}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 bg-light rounded">
+                <h4 class="text-primary mb-3"><i class="fas fa-presentation me-2"></i>Pitch Deck Slides</h4>
+                <div class="row g-3">
+    `;
+    
+    pitchData.slides.forEach((slide, index) => {
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">Slide ${index + 1}: ${slide.title}</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            ${slide.points.map(point => `<li>${point}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+    
+    pitchContent.innerHTML = html;
+}
+
+document.getElementById('downloadBtn').addEventListener('click', function() {
+    if (currentPitchId) {
+        window.open(`/api/download_ppt/${currentPitchId}`, '_blank');
+    }
+});
+</script>
+{% endblock %}
