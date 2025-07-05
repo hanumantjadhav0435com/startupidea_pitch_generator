@@ -39,7 +39,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
@@ -84,13 +84,27 @@ def generate():
 def api_generate_pitch():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
         startup_idea = data.get('idea', '').strip()
         
         if not startup_idea:
             return jsonify({'error': 'Startup idea is required'}), 400
+            
+        if len(startup_idea) < 10:
+            return jsonify({'error': 'Please provide more details about your startup idea (minimum 10 characters)'}), 400
+            
+        if len(startup_idea) > 2000:
+            return jsonify({'error': 'Startup idea is too long (maximum 2000 characters)'}), 400
+        
+        logging.info(f"Generating pitch for user {current_user.id}: {startup_idea[:50]}...")
         
         # Generate pitch content using Gemini
         pitch_data = generate_pitch_content(startup_idea)
+        
+        if not pitch_data:
+            return jsonify({'error': 'Failed to generate pitch content. Please try again.'}), 500
         
         # Save to database
         from models import Pitch
@@ -102,15 +116,21 @@ def api_generate_pitch():
         db.session.add(pitch)
         db.session.commit()
         
+        logging.info(f"Successfully generated pitch {pitch.id} for user {current_user.id}")
+        
         return jsonify({
             'success': True,
             'pitch_id': pitch.id,
             'data': pitch_data
         })
         
+    except ValueError as e:
+        logging.error(f"Validation error generating pitch: {str(e)}")
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         logging.error(f"Error generating pitch: {str(e)}")
-        return jsonify({'error': 'Failed to generate pitch. Please try again.'}), 500
+        db.session.rollback()
+        return jsonify({'error': 'Failed to generate pitch. Please try again later.'}), 500
 
 @app.route('/api/download_ppt/<int:pitch_id>')
 @login_required

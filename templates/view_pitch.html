@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}View Pitch - AI Pitch Generator{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="display-6 fw-bold text-primary">
+                    <i class="fas fa-eye me-2"></i>Pitch Details
+                </h1>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                    <a href="{{ url_for('download_ppt', pitch_id=pitch.id) }}" class="btn btn-success">
+                        <i class="fas fa-download me-2"></i>Download PowerPoint
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-gradient-to-r from-primary to-secondary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>{{ pitch.startup_idea[:100] }}{% if pitch.startup_idea|length > 100 %}...{% endif %}
+                    </h3>
+                    <small class="opacity-75">
+                        <i class="fas fa-calendar me-1"></i>Created on {{ pitch.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                    </small>
+                </div>
+                <div class="card-body p-5">
+                    <!-- Original Startup Idea -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-3">
+                            <i class="fas fa-lightbulb me-2"></i>Original Startup Idea
+                        </h4>
+                        <div class="p-4 bg-light rounded">
+                            <p class="mb-0 lead">{{ pitch.startup_idea }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Elevator Pitch -->
+                    <div class="mb-5 p-4 bg-primary bg-opacity-10 rounded">
+                        <h4 class="text-primary mb-3">
+                            <i class="fas fa-rocket me-2"></i>Elevator Pitch
+                        </h4>
+                        <p class="fs-5 fw-bold mb-0 text-primary">{{ pitch.pitch_data.pitch }}</p>
+                    </div>
+                    
+                    <!-- Core Sections -->
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>Problem
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ pitch.pitch_data.problem }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-lightbulb me-2"></i>Solution
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ pitch.pitch_data.solution }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-chart-line me-2"></i>Market Opportunity
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ pitch.pitch_data.market }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-warning">
+                                <div class="card-header bg-warning text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-dollar-sign me-2"></i>Monetization
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">{{ pitch.pitch_data.monetization }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pitch Deck Slides -->
+                    <div class="mb-5">
+                        <h4 class="text-primary mb-4">
+                            <i class="fas fa-presentation me-2"></i>Pitch Deck Slides
+                        </h4>
+                        <div class="row g-4">
+                            {% for slide in pitch.pitch_data.slides %}
+                            <div class="col-lg-6 mb-4">
+                                <div class="card h-100 shadow-sm">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0 fw-bold">
+                                            <span class="badge bg-light text-primary me-2">{{ loop.index }}</span>
+                                            {{ slide.title }}
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="mb-0">
+                                            {% for point in slide.points %}
+                                            <li class="mb-2">{{ point }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="text-center">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('download_ppt', pitch_id=pitch.id) }}" class="btn btn-success btn-lg">
+                                <i class="fas fa-download me-2"></i>Download PowerPoint
+                            </a>
+                            <a href="{{ url_for('generate') }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus me-2"></i>Generate New Pitch
+                            </a>
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-tachometer-alt me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-header {
+    border-bottom: none;
+}
+
+.badge {
+    font-size: 0.9em;
+}
+
+.pitch-section {
+    border-left: 4px solid var(--primary-color);
+    padding-left: 1rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+    }
+}
+</style>
+{% endblock %}

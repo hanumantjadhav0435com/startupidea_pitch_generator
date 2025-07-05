@@ -25,8 +25,12 @@
                                 class="form-control" 
                                 rows="6" 
                                 placeholder="Describe your startup idea in detail. Include the problem you're solving, your target audience, and your unique value proposition. The more detail you provide, the better the AI can generate your pitch."
+                                maxlength="2000"
                                 required
                             ></textarea>
+                            <div class="form-text">
+                                <span id="charCount">0</span>/2000 characters
+                            </div>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1"></i>
                                 Be as detailed as possible. Include the problem, solution, target market, and competitive advantage.
@@ -74,12 +78,22 @@
                     </div>
                     
                     <div class="text-center mt-4">
-                        <button id="downloadBtn" class="btn btn-success btn-lg" style="display: none;">
-                            <i class="fas fa-download me-2"></i>Download as PowerPoint
-                        </button>
-                        <a href="{{ url_for('generate') }}" class="btn btn-outline-primary btn-lg ms-2">
-                            <i class="fas fa-plus me-2"></i>Generate Another Pitch
-                        </a>
+                        <div class="btn-group" role="group" aria-label="Pitch actions">
+                            <button id="downloadBtn" class="btn btn-success btn-lg" style="display: none;">
+                                <i class="fas fa-download me-2"></i>Download PowerPoint
+                            </button>
+                            <button id="viewPitchBtn" class="btn btn-info btn-lg" style="display: none;">
+                                <i class="fas fa-eye me-2"></i>View Full Pitch
+                            </button>
+                        </div>
+                        <div class="mt-3">
+                            <a href="{{ url_for('generate') }}" class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-plus me-2"></i>Generate Another Pitch
+                            </a>
+                            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary btn-lg ms-2">
+                                <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -90,21 +104,46 @@
 
 {% block scripts %}
 <script>
-let currentPitchId = null;
+// Character counter for textarea
+document.getElementById('startupIdea').addEventListener('input', function(e) {
+    const charCount = e.target.value.length;
+    const charCountElement = document.getElementById('charCount');
+    charCountElement.textContent = charCount;
+    
+    if (charCount > 1800) {
+        charCountElement.className = 'text-warning';
+    } else if (charCount > 1900) {
+        charCountElement.className = 'text-danger';
+    } else {
+        charCountElement.className = 'text-muted';
+    }
+});
 
 document.getElementById('pitchForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const startupIdea = document.getElementById('startupIdea').value.trim();
-    if (!startupIdea) {
-        alert('Please describe your startup idea');
+    if (window.isGenerating) {
         return;
     }
+    
+    const startupIdea = document.getElementById('startupIdea').value.trim();
+    if (!startupIdea) {
+        PitchGenerator.showErrorMessage('Please describe your startup idea');
+        return;
+    }
+    
+    if (startupIdea.length < 10) {
+        PitchGenerator.showErrorMessage('Please provide more details about your startup idea (minimum 10 characters)');
+        return;
+    }
+    
+    window.isGenerating = true;
     
     // Show loading state
     document.getElementById('loadingSection').style.display = 'block';
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
+    document.getElementById('generateBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Generating...';
     
     try {
         const response = await fetch('/api/generate_pitch', {
@@ -115,23 +154,37 @@ document.getElementById('pitchForm').addEventListener('submit', async function(e
             body: JSON.stringify({ idea: startupIdea })
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.success) {
-            currentPitchId = data.pitch_id;
+            window.currentPitchId = data.pitch_id;
             displayPitch(data.data);
             document.getElementById('loadingSection').style.display = 'none';
             document.getElementById('resultsSection').style.display = 'block';
             document.getElementById('downloadBtn').style.display = 'inline-block';
+            document.getElementById('viewPitchBtn').style.display = 'inline-block';
+            PitchGenerator.showSuccessMessage('Pitch generated successfully! Scroll down to view your results.');
+            
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
         } else {
             throw new Error(data.error || 'Failed to generate pitch');
         }
     } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to generate pitch: ' + error.message);
+        console.error('Error generating pitch:', error);
+        PitchGenerator.showErrorMessage('Failed to generate pitch: ' + error.message);
         document.getElementById('loadingSection').style.display = 'none';
     } finally {
+        window.isGenerating = false;
         document.getElementById('generateBtn').disabled = false;
+        document.getElementById('generateBtn').innerHTML = '<i class="fas fa-magic me-2"></i>Generate Pitch with AI';
     }
 });
 
@@ -207,8 +260,39 @@ function displayPitch(pitchData) {
 }
 
 document.getElementById('downloadBtn').addEventListener('click', function() {
-    if (currentPitchId) {
-        window.open(`/api/download_ppt/${currentPitchId}`, '_blank');
+    if (window.currentPitchId) {
+        const downloadBtn = document.getElementById('downloadBtn');
+        const originalText = downloadBtn.innerHTML;
+        
+        downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Preparing Download...';
+        downloadBtn.disabled = true;
+        
+        // Create a hidden link to trigger download
+        const link = document.createElement('a');
+        link.href = `/api/download_ppt/${window.currentPitchId}`;
+        link.download = `startup_pitch_${window.currentPitchId}.pptx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        PitchGenerator.showSuccessMessage('PowerPoint download started! Check your downloads folder.');
+        
+        // Reset button after 2 seconds
+        setTimeout(() => {
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+        }, 2000);
+    } else {
+        PitchGenerator.showErrorMessage('No pitch available for download. Please generate a pitch first.');
+    }
+});
+
+// View full pitch button
+document.getElementById('viewPitchBtn').addEventListener('click', function() {
+    if (window.currentPitchId) {
+        window.location.href = `/pitch/${window.currentPitchId}`;
+    } else {
+        PitchGenerator.showErrorMessage('No pitch available to view. Please generate a pitch first.');
     }
 });
 </script>

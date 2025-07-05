@@ -1,8 +1,8 @@
 // Main JavaScript file for AI Pitch Generator
 
 // Global variables
-let currentPitchId = null;
-let isGenerating = false;
+window.currentPitchId = null;
+window.isGenerating = false;
 
 // DOM Content Loaded
 document.addEventListener('DOMContentLoaded', function() {
