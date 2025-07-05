@@ -101,7 +101,7 @@ def api_generate_pitch():
         logging.info(f"Generating pitch for user {current_user.id}: {startup_idea[:50]}...")
         
         # Generate pitch content using Gemini
-        pitch_data = generate_pitch_content(startup_idea)
+        pitch_data, is_fallback = generate_pitch_content(startup_idea)
         
         if not pitch_data:
             return jsonify({'error': 'Failed to generate pitch content. Please try again.'}), 500
@@ -118,11 +118,16 @@ def api_generate_pitch():
         
         logging.info(f"Successfully generated pitch {pitch.id} for user {current_user.id}")
         
-        return jsonify({
+        response_data = {
             'success': True,
             'pitch_id': pitch.id,
             'data': pitch_data
-        })
+        }
+        
+        if is_fallback:
+            response_data['warning'] = 'AI service temporarily unavailable. Using backup content generation.'
+            
+        return jsonify(response_data)
         
     except ValueError as e:
         logging.error(f"Validation error generating pitch: {str(e)}")

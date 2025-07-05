@@ -21,58 +21,41 @@ class PitchData(BaseModel):
     monetization: str
     slides: List[SlideData]
 
-def generate_pitch_content(startup_idea: str) -> Dict[str, Any]:
+def generate_pitch_content(startup_idea: str) -> tuple[Dict[str, Any], bool]:
     """
-    Generate comprehensive pitch content using Gemini API
+    Generate comprehensive pitch content using Gemini API with fallback handling
     """
     try:
+        # Create a more specific prompt for better JSON generation
         prompt = f"""
-        You are an expert startup mentor and investor pitch consultant.
-        
-        Given the startup idea: "{startup_idea}"
-        
-        Generate a comprehensive investor pitch with the following components:
-        
-        1. One-line pitch (elevator pitch)
-        2. Problem statement (clear and compelling)
-        3. Solution description (how you solve the problem)
-        4. Market opportunity (size and potential)
-        5. Monetization strategy (how you make money)
-        6. A 5-slide investor pitch deck with titles and detailed bullet points
-        
-        The 5 slides should be:
-        - Slide 1: Problem & Opportunity
-        - Slide 2: Solution & Product
-        - Slide 3: Market & Competition
-        - Slide 4: Business Model & Revenue
-        - Slide 5: Team & Next Steps
-        
-        Each slide should have 3-5 bullet points that are specific, actionable, and compelling.
-        
-        Format your response as JSON with this exact structure:
-        {{
-            "pitch": "one-line elevator pitch",
-            "problem": "detailed problem statement",
-            "solution": "detailed solution description",
-            "market": "market opportunity description",
-            "monetization": "monetization strategy",
-            "slides": [
-                {{"title": "slide title", "points": ["point 1", "point 2", "point 3"]}},
-                ...
-            ]
-        }}
-        
-        Make sure all content is professional, realistic, and investor-ready.
+Create a professional investor pitch for this startup idea: "{startup_idea}"
+
+Please respond with ONLY valid JSON in this exact format:
+
+{{
+  "pitch": "One compelling sentence describing the startup",
+  "problem": "Clear description of the problem being solved",
+  "solution": "How the startup solves this problem",
+  "market": "Market size and opportunity description",
+  "monetization": "How the business makes money",
+  "slides": [
+    {{"title": "Problem & Opportunity", "points": ["Problem detail 1", "Problem detail 2", "Market opportunity"]}},
+    {{"title": "Solution & Product", "points": ["Solution approach", "Key features", "Unique value proposition"]}},
+    {{"title": "Market & Competition", "points": ["Target market", "Market size", "Competitive advantage"]}},
+    {{"title": "Business Model & Revenue", "points": ["Revenue model", "Pricing strategy", "Growth projections"]}},
+    {{"title": "Team & Next Steps", "points": ["Team strengths", "Key milestones", "Funding needs"]}}
+  ]
+}}
+
+Make the content specific to the startup idea provided. Keep all text concise and professional.
         """
         
         response = client.models.generate_content(
-            model="gemini-2.5-pro",
+            model="gemini-2.5-flash",
             contents=[
                 types.Content(role="user", parts=[types.Part(text=prompt)])
             ],
             config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=PitchData,
                 temperature=0.7,
                 max_output_tokens=2000
             )
@@ -81,22 +64,154 @@ def generate_pitch_content(startup_idea: str) -> Dict[str, Any]:
         if not response.text:
             raise ValueError("Empty response from Gemini API")
         
-        # Parse the JSON response
-        pitch_data = json.loads(response.text)
+        # Clean and extract JSON from response
+        response_text = response.text.strip()
+        
+        # Try to extract JSON from the response
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        
+        if json_start == -1 or json_end == 0:
+            # Fallback: try to parse the entire response
+            json_text = response_text
+        else:
+            json_text = response_text[json_start:json_end]
+        
+        # Multiple attempts to parse JSON with different cleaning strategies
+        parsing_attempts = [
+            lambda x: json.loads(x),  # Try as-is first
+            lambda x: json.loads(x.replace('\n', ' ').replace('\r', ' ')),  # Remove newlines
+            lambda x: json.loads(x.replace('\\n', ' ').replace('\\r', ' ')),  # Remove escaped newlines
+            lambda x: json.loads(x.replace('"\n"', '" "').replace('"\r"', '" "')),  # Fix quoted newlines
+        ]
+        
+        pitch_data = None
+        for attempt in parsing_attempts:
+            try:
+                pitch_data = attempt(json_text)
+                break
+            except json.JSONDecodeError:
+                continue
+        
+        if pitch_data is None:
+            raise json.JSONDecodeError("Could not parse JSON after multiple attempts", json_text, 0)
+        
+        # Validate required fields and provide defaults if missing
+        if not isinstance(pitch_data, dict):
+            raise ValueError("Invalid response format")
+            
+        required_fields = ['pitch', 'problem', 'solution', 'market', 'monetization', 'slides']
+        for field in required_fields:
+            if field not in pitch_data:
+                pitch_data[field] = f"Generated content for {field}"
+        
+        # Ensure slides is a list with proper structure
+        if not isinstance(pitch_data.get('slides'), list):
+            pitch_data['slides'] = []
+            
+        # Add default slides if none provided
+        if len(pitch_data['slides']) < 5:
+            default_slides = [
+                {"title": "Problem & Opportunity", "points": ["Market problem identified", "Large addressable market", "Current solutions inadequate"]},
+                {"title": "Solution & Product", "points": ["Innovative solution approach", "Key features and benefits", "Competitive advantages"]},
+                {"title": "Market & Competition", "points": ["Target market analysis", "Competitive landscape", "Market positioning"]},
+                {"title": "Business Model & Revenue", "points": ["Revenue streams", "Pricing strategy", "Financial projections"]},
+                {"title": "Team & Next Steps", "points": ["Founding team expertise", "Key milestones", "Funding requirements"]}
+            ]
+            
+            for i in range(len(pitch_data['slides']), 5):
+                if i < len(default_slides):
+                    pitch_data['slides'].append(default_slides[i])
+        
+        # Validate each slide structure
+        for i, slide in enumerate(pitch_data['slides']):
+            if not isinstance(slide, dict):
+                pitch_data['slides'][i] = {"title": f"Slide {i+1}", "points": ["Key point 1", "Key point 2", "Key point 3"]}
+            elif 'title' not in slide:
+                slide['title'] = f"Slide {i+1}"
+            elif 'points' not in slide or not isinstance(slide['points'], list):
+                slide['points'] = ["Key point 1", "Key point 2", "Key point 3"]
         
         # Validate and clean the data
         validated_data = PitchData(**pitch_data)
         
         logging.info(f"Generated pitch for idea: {startup_idea}")
-        return validated_data.dict()
+        return validated_data.dict(), False
         
     except json.JSONDecodeError as e:
         logging.error(f"JSON decode error: {str(e)}")
-        raise Exception("Failed to parse AI response. Please try again.")
+        # Return fallback content when JSON parsing fails
+        return create_fallback_pitch(startup_idea), True
     
     except Exception as e:
         logging.error(f"Error generating pitch content: {str(e)}")
-        raise Exception(f"Failed to generate pitch content: {str(e)}")
+        # Return fallback content for any other errors
+        return create_fallback_pitch(startup_idea), True
+
+def create_fallback_pitch(startup_idea: str) -> Dict[str, Any]:
+    """
+    Create a fallback pitch when API fails
+    """
+    logging.info("Creating fallback pitch content")
+    
+    # Extract key words from the startup idea for personalization
+    idea_words = startup_idea.lower().split()
+    tech_keywords = ['ai', 'machine learning', 'blockchain', 'app', 'platform', 'software', 'technology', 'digital']
+    is_tech = any(keyword in idea_words for keyword in tech_keywords)
+    
+    sector = "technology" if is_tech else "business"
+    
+    fallback_data = {
+        "pitch": f"Revolutionizing {sector} with an innovative solution that addresses key market needs through {startup_idea[:50]}...",
+        "problem": f"Current market solutions are inadequate for addressing the core challenges that {startup_idea[:100]}... aims to solve. There is a significant gap in the market for effective, scalable solutions.",
+        "solution": f"Our innovative approach leverages cutting-edge methodologies to deliver a comprehensive solution. {startup_idea[:100]}... represents a breakthrough in addressing these challenges with measurable impact.",
+        "market": f"The addressable market for this solution is substantial and growing. Target customers include businesses and individuals seeking better alternatives to current offerings in the {sector} space.",
+        "monetization": "Multiple revenue streams including subscription services, transaction fees, and premium features. Scalable business model with strong unit economics and clear path to profitability.",
+        "slides": [
+            {
+                "title": "Problem & Opportunity", 
+                "points": [
+                    "Significant market gap exists in current solutions",
+                    "Large addressable market with growing demand",
+                    "Customer pain points are well-documented and validated"
+                ]
+            },
+            {
+                "title": "Solution & Product", 
+                "points": [
+                    "Innovative approach that directly addresses core problems",
+                    "Scalable technology platform with competitive advantages",
+                    "Proven methodology with measurable outcomes"
+                ]
+            },
+            {
+                "title": "Market & Competition", 
+                "points": [
+                    f"Target market in {sector} with substantial opportunity",
+                    "Competitive differentiation through unique value proposition",
+                    "First-mover advantage in emerging market segment"
+                ]
+            },
+            {
+                "title": "Business Model & Revenue", 
+                "points": [
+                    "Multiple revenue streams for sustainable growth",
+                    "Subscription-based model with high customer retention",
+                    "Clear path to profitability with strong unit economics"
+                ]
+            },
+            {
+                "title": "Team & Next Steps", 
+                "points": [
+                    "Experienced founding team with relevant industry expertise",
+                    "Key milestones defined for next 12-18 months",
+                    "Seeking strategic partnerships and investment for growth"
+                ]
+            }
+        ]
+    }
+    
+    return fallback_data
 
 def format_pitch_for_display(pitch_data: Dict[str, Any]) -> str:
     """

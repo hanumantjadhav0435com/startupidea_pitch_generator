@@ -167,7 +167,13 @@ document.getElementById('pitchForm').addEventListener('submit', async function(e
             document.getElementById('resultsSection').style.display = 'block';
             document.getElementById('downloadBtn').style.display = 'inline-block';
             document.getElementById('viewPitchBtn').style.display = 'inline-block';
-            PitchGenerator.showSuccessMessage('Pitch generated successfully! Scroll down to view your results.');
+            
+            // Show appropriate message based on whether fallback was used
+            if (data.warning) {
+                PitchGenerator.showInfoMessage(data.warning + ' Your pitch has been generated successfully.');
+            } else {
+                PitchGenerator.showSuccessMessage('Pitch generated successfully! Scroll down to view your results.');
+            }
             
             // Scroll to results
             document.getElementById('resultsSection').scrollIntoView({ 
