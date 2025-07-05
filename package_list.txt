@@ -1,0 +1,26 @@
+# AI Pitch Generator - Package Dependencies
+
+## Core Packages (Install these)
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-Mail==0.9.1
+Flask-WTF==1.2.1
+WTForms==3.1.1
+Werkzeug==3.0.1
+SQLAlchemy==2.0.23
+email-validator==2.1.0
+google-genai==0.4.0
+pydantic==2.5.2
+python-pptx==0.6.23
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+
+## Installation Command
+pip install Flask==3.0.0 Flask-SQLAlchemy==3.1.1 Flask-Login==0.6.3 Flask-Mail==0.9.1 Flask-WTF==1.2.1 WTForms==3.1.1 Werkzeug==3.0.1 SQLAlchemy==2.0.23 email-validator==2.1.0 google-genai==0.4.0 pydantic==2.5.2 python-pptx==0.6.23 gunicorn==21.2.0 psycopg2-binary==2.9.9
+
+## Notes:
+- These are the exact versions used in this project
+- psycopg2-binary is only needed if using PostgreSQL
+- For SQLite only, you can skip psycopg2-binary
+- All packages are compatible with Python 3.8+

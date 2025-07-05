@@ -88,8 +88,23 @@ The AI Pitch Generator is a Flask-based web application that transforms startup 
 - Environment-based secret key management
 - CSRF protection through Flask-WTF
 
+## Local Setup Files
+
+### Installation Files
+- **SETUP.md**: Comprehensive setup guide with step-by-step instructions
+- **package_list.txt**: List of all required Python packages with versions
+- **install.sh**: Automated installation script for Linux/Mac
+- **install.bat**: Automated installation script for Windows
+
+### Quick Setup
+1. Clone the repository
+2. Run `./install.sh` (Linux/Mac) or `install.bat` (Windows)
+3. Edit `.env` file with your Google Gemini API key
+4. Run `python app.py`
+
 ## Changelog
 - July 05, 2025. Initial setup
+- July 05, 2025. Added local setup documentation and installation scripts
 
 ## User Preferences
 
