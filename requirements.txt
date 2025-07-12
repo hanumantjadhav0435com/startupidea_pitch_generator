@@ -7,7 +7,8 @@ Flask-Migrate==4.0.5
 Flask-WTF==1.2.1
 
 # AI & Data Validation
-google-generativeai==0.5.2
+google-generativeai>=0.5.2,<0.6.0
+
 pydantic==2.7.1
 
 # File Generation
